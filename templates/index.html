@@ -473,7 +473,7 @@
 
         <!-- 朗讀看板 -->
         <div id="reader-panel-container" class="reader-panel-container">
-            <label>朗讀看板 (點擊單字可重聽該單字之後的內容)</label>
+            <label>朗讀看板 (點擊單字可重複朗讀該單字)</label>
             <div id="reader-panel" class="reader-panel"></div>
         </div>
 
@@ -538,6 +538,7 @@
         let currentWordsData = [];
         let historyItems = [];
         let highlightAnimationFrame = null;
+        let playUntilTime = null; // 指定播放結束時間 (秒)，用於單字重複發音
 
         // 更新語速顯示文字
         speedSlider.addEventListener('input', () => {
@@ -571,6 +572,14 @@
 
             function update() {
                 if (!audioPlayer.paused && !audioPlayer.ended) {
+                    // 檢查是否已到達指定的單字播放結束時間
+                    if (playUntilTime !== null && audioPlayer.currentTime >= playUntilTime) {
+                        audioPlayer.pause();
+                        playUntilTime = null; // 重置
+                        // 移除所有高亮
+                        readerPanel.querySelectorAll('.word-span').forEach(s => s.classList.remove('highlight'));
+                        return;
+                    }
                     // 扣除使用者設定的延遲時間，以補償硬體播放延遲
                     const delayVal = parseInt(delaySlider.value) / 100.0;
                     const time = audioPlayer.currentTime - delayVal;
@@ -644,6 +653,11 @@
             readerPanel.querySelectorAll('.word-span').forEach(span => {
                 span.addEventListener('click', () => {
                     const start = parseFloat(span.getAttribute('data-start'));
+                    const end = parseFloat(span.getAttribute('data-end'));
+                    
+                    // 設定播放結束時間點為該單字的 end 時間，並多給一小段緩衝時間防止切音過於生硬
+                    playUntilTime = end + 0.08;
+                    
                     audioPlayer.currentTime = start;
                     audioPlayer.play();
                 });
@@ -683,6 +697,7 @@
                 setupReaderPanel(text, currentWordsData);
 
                 // 設定並播放音訊
+                playUntilTime = null; // 播放全句，重置單字播放限制
                 audioPlayer.src = currentAudioUrl;
                 audioPlayer.play();
 
@@ -708,6 +723,7 @@
         replayBtn.addEventListener('click', () => {
             if (currentAudioUrl) {
                 // 點擊重複播放時重置時間並播放，並重繪高亮看板
+                playUntilTime = null; // 播放全句，重置單字播放限制
                 audioPlayer.currentTime = 0;
                 audioPlayer.play();
             }
@@ -765,6 +781,7 @@
                     setupReaderPanel(item.text, currentWordsData);
 
                     // 更新當前播放源並播放
+                    playUntilTime = null; // 播放全句，重置單字播放限制
                     audioPlayer.src = currentAudioUrl;
                     audioPlayer.play();
                     
